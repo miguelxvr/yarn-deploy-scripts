@@ -1,0 +1,66 @@
+#!/bin/bash
+
+source /tmp/hadoop-`echo $USER`/etc/init.d/hadoop.env
+source ${HADOOP_HOME}/etc/hadoop/hadoop-env.sh
+source ${HADOOP_HOME}/etc/hadoop/yarn-env.sh
+
+RETVAL=0
+PIDFILE="${YARN_PID_DIR}/hadoop-yarn-nodemanager.pid"
+desc="Hadoop YARN NodeManager daemon"
+
+start() {
+  echo -n $"Starting $desc (hadoop-nodemanager): "
+#  daemon --user yarn ${HADOOP_HOME}/sbin/yarn-daemon.sh --config "${HADOOP_CONF_DIR}" start nodemanager
+  ${HADOOP_HOME}/sbin/yarn-daemon.sh --config "${HADOOP_CONF_DIR}" start nodemanager
+  RETVAL=$?
+  echo
+  [ $RETVAL -eq 0 ] && touch /tmp/hadoop-yarn-nodemanager.lock
+  return $RETVAL
+}
+
+stop() {
+  echo -n $"Stopping $desc (hadoop-nodemanager): "
+#  daemon --user yarn ${HADOOP_HOME}/sbin/yarn-daemon.sh --config "${HADOOP_CONF_DIR}" stop nodemanager
+  ${HADOOP_HOME}/sbin/yarn-daemon.sh --config "${HADOOP_CONF_DIR}" stop nodemanager
+  RETVAL=$?
+  sleep 1
+  echo
+  [ $RETVAL -eq 0 ] && rm -f /tmp/hadoop-yarn-nodemanager.lock $PIDFILE
+}
+
+checkstatus(){
+  echo $"$desc $(status -p $PIDFILE)"
+  RETVAL=$?
+}
+
+restart() {
+  stop
+  start
+}
+
+condrestart(){
+  [ -e /var/lock/subsys/hadoop-yarn-nodemanager ] && restart || :
+}
+
+case "$1" in
+  start)
+    start
+    ;;
+  stop)
+    stop
+    ;;
+  status)
+    checkstatus
+    ;;
+  restart)
+    restart
+    ;;
+  condrestart|try-restart)
+    condrestart
+    ;;
+  *)
+    echo $"Usage: $0 {start|stop|status|restart|try-restart}"
+    exit 1
+esac
+
+exit $RETVAL

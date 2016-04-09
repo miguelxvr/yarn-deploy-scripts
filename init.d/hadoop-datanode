@@ -1,0 +1,64 @@
+#!/bin/bash
+
+source /tmp/hadoop-`echo $USER`/etc/init.d/hadoop.env
+source ${HADOOP_HOME}/etc/hadoop/hadoop-env.sh
+source ${HADOOP_HOME}/etc/hadoop/yarn-env.sh
+
+RETVAL=0
+PIDFILE="${HADOOP_PID_DIR}/hadoop-hdfs-datanode.pid"
+desc="Hadoop HDFS DataNode daemon"
+
+start() {
+  echo -n $"Starting $desc (hadoop-datanode): "
+  ${HADOOP_HOME}/sbin/hadoop-daemon.sh --config "${HADOOP_CONF_DIR}" start datanode
+  RETVAL=$?
+  echo
+  [ $RETVAL -eq 0 ] && touch /tmp/hadoop-datanode.lock
+  return $RETVAL
+}
+
+stop() {
+  echo -n $"Stopping $desc (hadoop-datanode): "
+  ${HADOOP_HOME}/sbin/hadoop-daemon.sh --config "${HADOOP_CONF_DIR}" stop datanode
+  RETVAL=$?
+  sleep 1
+  echo
+  [ $RETVAL -eq 0 ] && rm -f /tmp/hadoop-datanode.lock $PIDFILE
+}
+
+restart() {
+  stop
+  start
+}
+
+checkstatus(){
+  echo $"$desc $(status -p $PIDFILE)"
+  RETVAL=$?
+}
+
+condrestart(){
+  [ -e /var/lock/subsys/hadoop-datanode ] && restart || :
+}
+
+case "$1" in
+  start)
+    start
+    ;;
+  stop)
+    stop
+    ;;
+  status)
+    checkstatus
+    ;;
+  restart)
+    restart
+    ;;
+  condrestart)
+    condrestart
+    ;;
+  *)
+    echo $"Usage: $0 {start|stop|status|restart|condrestart}"
+    exit 1
+esac
+
+exit $RETVAL

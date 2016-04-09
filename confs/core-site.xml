@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<configuration>
+  <property>
+    <name>fs.default.name</name>
+    <value>hdfs://atlantica01:9000</value>
+  </property>
+  <property>
+    <name>hadoop.http.staticuser.user</name>
+    <value/>
+  </property>
+  <property>
+    <name>hadoop.proxyuser.mapred.groups</name>
+    <value>*</value>
+  </property>
+  <property>
+    <name>hadoop.proxyuser.mapred.hosts</name>
+    <value>*</value>
+  </property>
+</configuration>

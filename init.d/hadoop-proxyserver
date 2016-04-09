@@ -1,0 +1,64 @@
+#!/bin/bash
+
+source /tmp/hadoop-`echo $USER`/etc/init.d/hadoop.env
+source ${HADOOP_HOME}/etc/hadoop/hadoop-env.sh
+source ${HADOOP_HOME}/etc/hadoop/yarn-env.sh
+
+RETVAL=0
+PIDFILE="${YARN_PID_DIR}/yarn-yarn-proxyserver.pid"
+desc="Hadoop YARN proxy server daemon"
+
+start() {
+  echo -n $"Starting $desc (hadoop-yarn-proxy-server): "
+  $HADOOP_HOME/sbin/yarn-daemon.sh --config "${HADOOP_CONF_DIR}" start proxyserver
+  RETVAL=$?
+  echo
+  [ $RETVAL -eq 0 ] && touch /tmp/hadoop-yarn-proxy-server.lock
+  return $RETVAL
+}
+
+stop() {
+  echo -n $"Stopping $desc (hadoop-yarn-proxy-server): "
+  $HADOOP_HOME/sbin/yarn-daemon.sh --config "${HADOOP_CONF_DIR}" stop proxyserver
+  RETVAL=$?
+  sleep 1
+  echo
+  [ $RETVAL -eq 0 ] && rm -f /tmp/hadoop-yarn-proxy-server.lock $PIDFILE
+}
+
+checkstatus(){
+  echo $"$desc $(status -p $PIDFILE)"
+  RETVAL=$?
+}
+
+restart() {
+  stop
+  start
+}
+
+condrestart(){
+  [ -e /var/lock/subsys/hadoop-yarn-proxy-server ] && restart || :
+}
+
+case "$1" in
+  start)
+    start
+    ;;
+  stop)
+    stop
+    ;;
+  status)
+    checkstatus
+    ;;
+  restart)
+    restart
+    ;;
+  condrestart|try-restart)
+    condrestart
+    ;;
+  *)
+    echo $"Usage: $0 {start|stop|status|restart|try-restart|upgrade}"
+    exit 1
+esac
+
+exit $RETVAL
