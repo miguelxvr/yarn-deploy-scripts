@@ -6,10 +6,18 @@
   </property>
   <property>
     <name>mapreduce.jobhistory.address</name>
-    <value>atlantica01:10020</value>
+    <value>cerrado04n:10020</value>
   </property>
   <property>
     <name>mapreduce.jobhistory.webapp.address</name>
-    <value>atlantica01:19888</value>
+    <value>cerrado04n:19888</value>
+  </property>
+  <property>
+    <name>yarn.app.mapreduce.am.staging-dir</name>
+    <value>/mapred</value>
+  </property>
+  <property>
+    <name>mapred.child.java.opts</name>
+    <value>-Xmx1024m</value>
   </property>
 </configuration>

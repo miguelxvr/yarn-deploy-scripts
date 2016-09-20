@@ -2,7 +2,7 @@
 <configuration>
   <property>
     <name>fs.default.name</name>
-    <value>hdfs://atlantica01:9000</value>
+    <value>hdfs://cerrado04n:9000</value>
   </property>
   <property>
     <name>hadoop.http.staticuser.user</name>

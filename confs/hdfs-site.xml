@@ -18,10 +18,10 @@
   </property>
   <property>
     <name>dfs.namenode.http-address</name>
-    <value>atlantica01:50070</value>
+    <value>cerrado04n:50070</value>
   </property>
   <property>
     <name>dfs.namenode.secondary.http-address</name>
-    <value>atlantica01:50090</value>
+    <value>cerrado04n:50090</value>
   </property>
 </configuration>

@@ -109,6 +109,7 @@ install()
 	put_config --file confs/mapred-site.xml --property mapreduce.jobhistory.address --value "$mr_hist:10020"
 	put_config --file confs/mapred-site.xml --property mapreduce.jobhistory.webapp.address --value "$mr_hist:19888"
 	put_config --file confs/mapred-site.xml --property yarn.app.mapreduce.am.staging-dir --value /mapred
+#	put_config --file confs/mapred-site.xml --property mapred.child.java.opts --value -Xmx2048m
 
 	create_config --file confs/yarn-site.xml
 	put_config --file confs/yarn-site.xml --property yarn.nodemanager.aux-services --value mapreduce_shuffle
@@ -126,7 +127,7 @@ install()
         put_config --file confs/yarn-site.xml --property yarn.scheduler.maximum-allocation-vcores --value $TOTAL_CPU
 	put_config --file confs/yarn-site.xml --property yarn.log-aggregation-enable --value true
         put_config --file confs/yarn-site.xml --property yarn.resourcemanager.scheduler.class --value de.tuberlin.cit.yarn.scheduler.FixedHostsScheduler
-        #put_config --file confs/yarn-site.xml --property yarn.resourcemanager.scheduler.class --value org.apache.hadoop.yarn.server.resourcemanager.scheduler.capacity.CapacityScheduler
+#        put_config --file confs/yarn-site.xml --property yarn.resourcemanager.scheduler.class --value org.apache.hadoop.yarn.server.resourcemanager.scheduler.capacity.CapacityScheduler
 
 	if [ "x$1" = "xdocker" ]; then
 		put_config --file confs/yarn-site.xml --property yarn.nodemanager.container-executor.class --value org.apache.hadoop.yarn.server.nodemanager.DockerContainerExecutor
@@ -167,7 +168,6 @@ copy_conf_files()
 
 start()
 {
-	
 	echo "Starting Hadoop $HADOOP_VERSION services on all hosts..."
 	execute $nn "chmod 755 $HADOOP_INIT/hadoop-namenode && $HADOOP_INIT/hadoop-namenode start"
 	execute $nn "chmod 755 $HADOOP_INIT/hadoop-secondarynamenode && $HADOOP_INIT/hadoop-secondarynamenode start"
@@ -177,8 +177,10 @@ start()
 
 	execute $rmgr "chmod 755 $HADOOP_INIT/hadoop-resourcemanager && $HADOOP_INIT/hadoop-resourcemanager start"
 	executeall "chmod 755 $HADOOP_INIT/hadoop-nodemanager && $HADOOP_INIT/hadoop-nodemanager start"
-	#to load capacity scheduler on all hosts
-	executeall "echo yarn rmadmin -refreshQueues"
+	execute $rmgr "$HADOOP_HOME/bin/yarn rmadmin -refreshQueues"
+
+	hdfs dfsadmin -safemode leave
+
 	echo -e "-------------------------------------------------------------------------------------"
 	echo -e "Add the following exports in user profile ($HOME/.bashrc) before running Hadoop applications:\n"
 	echo -e "
