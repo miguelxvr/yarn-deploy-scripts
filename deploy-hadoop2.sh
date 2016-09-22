@@ -10,7 +10,7 @@
 source hadoop.env
 source hadoop-xml-conf.sh
 
-CMD_OPTIONS=$(getopt -n "$0"  -o hidkstuc --long "help,interactive,deploy,docker,start,terminate,uninstall,copy"  -- "$@")
+CMD_OPTIONS=$(getopt -n "$0"  -o hidkstucl --long "help,interactive,deploy,docker,start,terminate,uninstall,copy,hibench"  -- "$@")
 if [ $? -ne 0 ];
 then
   exit 1
@@ -19,6 +19,8 @@ eval set -- "$CMD_OPTIONS"
 
 copyall()
 {
+	[ ! -f $1 ] && echo "File $1 not found" && exit 1
+
 	for dest in $all_hosts; do
 		scp $1 $dest:$2
 	done
@@ -27,33 +29,71 @@ copyall()
 executeall()
 {
 	for dest in $all_hosts; do
-		rsh $dest $1 
+		ssh $dest $1 
         done
 }
 
 execute()
 {
-	rsh $1 $2
+	ssh $1 $2
 }
 
-fix_hibench_spark_conf()
+build_hibench()
 {
-        sed -e s,HADOOP_HOME,${HADOOP_HOME},g HiBench/conf/99-user_defined_properties.conf.tpl | \
+        # Download Hibench from repository
+        git clone https://github.com/intel-hadoop/HiBench.git $SRC_DIR/HiBench
+        pushd $SRC_DIR/HiBench/bin
+        ./build-all.sh
+        popd
+}
+
+configure_hibench()
+{
+	# Configure Hibench to fit the environment
+        sed -e s,HADOOP_HOME,${HADOOP_HOME},g confs/99-user_defined_properties.conf.template | \
         sed -e s,HDFS_MASTER,${nn}:9000,g | \
         sed -e s,SPARK_HOME,${SPARK_HOME},g | \
         sed -e s,SPARK_VERSION,${SPARK_VERSION},g | \
+        sed -e s,STORM_HOME,${STORM_HOME},g | \
+        sed -e s,KAFKA_HOME,${KAFKA_HOME},g | \
         sed -e s,N_NODES,${TOTAL_NODES},g | \
         sed -e s,N_CORES,${TOTAL_CPU},g | \
-        sed -e s,TOTAL_MEMORY,`expr ${TOTAL_MEMORY_MB} - 2048`,g > HiBench/conf/99-user_defined_properties.conf
+        sed -e s,TOTAL_MEMORY,`expr ${TOTAL_MEMORY_MB} - 2048`,g > $SRC_DIR/HiBench/conf/99-user_defined_properties.conf
+}
+
+download()
+{
+	wget -N --no-check-certificate https://www.apache.org/dist/hadoop/core/hadoop-"$HADOOP_VERSION"/hadoop-"$HADOOP_VERSION".tar.gz -P $SRC_DIR
+	wget -N --no-check-certificate http://d3kbcqa49mib13.cloudfront.net/spark-$SPARK_VERSION.0-bin-hadoop2.6.tgz -P $SRC_DIR
+	wget -N --no-check-certificate http://ftp.unicamp.br/pub/apache/storm/apache-storm-$STORM_VERSION/apache-storm-$STORM_VERSION.tar.gz -P $SRC_DIR
+	wget -N --no-check-certificate http://ftp.unicamp.br/pub/apache/kafka/0.10.0.0/kafka_$KAFKA_VERSION.tgz -P $SRC_DIR
 }
 
 install()
 {
 	echo "Copying Hadoop $HADOOP_VERSION to all hosts..."
-	copyall hadoop-"$HADOOP_VERSION".tar.gz /tmp/
+	copyall $SRC_DIR/hadoop-"$HADOOP_VERSION".tar.gz /tmp/
+
+	echo "Copying Spark $SPARK_VERSION to all hosts..."
+	copyall $SRC_DIR/spark-$SPARK_VERSION.0-bin-hadoop2.6.tgz /tmp/
+
+	echo "Copying storm $STORM_VERSION to all hosts..."
+	copyall $SRC_DIR/apache-storm-$STORM_VERSION.tar.gz /tmp/
+
+	echo "Copying kafka $KAFKA_VERSION to all hosts..."
+	copyall $SRC_DIR/kafka_$KAFKA_VERSION.tgz /tmp/
 
 	echo "Extracting Hadoop $HADOOP_VERSION distribution on all hosts..."
 	executeall "tar -zxf /tmp/hadoop-"$HADOOP_VERSION".tar.gz -C /tmp"
+
+	echo "Extracting Spark $SPARK_VERSION distribution on all hosts..."
+	executeall "tar -zxf /tmp/spark-$SPARK_VERSION.0-bin-hadoop2.6.tgz -C /tmp"
+
+        echo "Extracting storm $STORM_VERSION distribution on all hosts..."
+        executeall "tar -zxf /tmp/apache-storm-$STORM_VERSION.tar.gz -C /tmp"
+
+        echo "Extracting kafka $KAFKA_VERSION distribution on all hosts..."
+        executeall "tar -zxf /tmp/kafka_$KAFKA_VERSION.tgz -C /tmp"
 
 	echo "Copying addons to Hadoop home ..."
 	copyall addons/yarn-scheduler-co-location-1.0.0.jar $HADOOP_HOME/share/hadoop/yarn/
@@ -142,12 +182,14 @@ install()
 
 	echo "Formatting the NameNode..."
         execute $nn "$HADOOP_HOME/bin/hdfs namenode -format"
-
-	fix_hibench_spark_conf
 }
 
 copy_conf_files()
 {
+
+        echo "Copying addons to Hadoop home ..."
+        copyall addons/yarn-scheduler-co-location-1.0.0.jar $HADOOP_HOME/share/hadoop/yarn/
+
 	echo "Copying base Hadoop XML config files to all hosts..."
         copyall confs/core-site.xml $HADOOP_CONF_DIR
         copyall confs/hdfs-site.xml $HADOOP_CONF_DIR
@@ -264,6 +306,8 @@ OPTIONS:
 
    -u, --uninstall	  Uninstall YARN, removing all associated data
 
+   -l, --hibench	  Download and configure HiBench based on the environment
+
    -h, --help             Show this message.
    
 EXAMPLES: 
@@ -284,12 +328,15 @@ do
       ;;
     -d|--deploy)
       load_variables
+      download
       install
+      configure_hibench
       start
       break
       ;;
     -k|--docker)
       load_variables
+      download
       install "docker"
       start
       break
@@ -313,6 +360,12 @@ do
     -c|--copy)
       load_variables
       copy_conf_files
+      break
+      ;;
+    -l|--hibench)
+      load_variables
+      build_hibench
+      configure_hibench
       break
       ;;
     --)
